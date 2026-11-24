@@ -112,6 +112,43 @@ function handleCopyKey(terminal) {
   });
 }
 
+// ghostty's hidden textarea turns off autocapitalize, autocorrect and
+// spellcheck, but its container (contenteditable, for Vimium's sake)
+// doesn't, so Chrome and Safari capitalize sentences there. The
+// container gets focus from ghostty's focus() at open, canvas clicks,
+// and taps on the padding; then every Enter capitalizes the next
+// letter. Mark the container the same and hand its focus to the
+// textarea, where beforeinput listens.
+const PLAIN_INPUT = Object.freeze({
+  autocapitalize: "off",
+  autocorrect: "off",
+  autocomplete: "off",
+  spellcheck: "false",
+});
+
+function plainInput(element) {
+  const input = element.querySelector("textarea");
+  for (const target of [element, input]) {
+    if (target === null) {
+      continue;
+    }
+    for (const [name, value] of Object.entries(PLAIN_INPUT)) {
+      target.setAttribute(name, value);
+    }
+  }
+  if (input === null) {
+    return;
+  }
+  element.addEventListener("focus", (event) => {
+    if (event.target === element) {
+      input.focus({ preventScroll: true });
+    }
+  });
+  if (document.activeElement === element) {
+    input.focus({ preventScroll: true });
+  }
+}
+
 // Returns { terminal, focus, attach }: focus gives the terminal the
 // keyboard, and attach wires a guest's port (see bridge) to it.
 // keyBarElement holds the touch key bar (keybar.js).
@@ -136,6 +173,7 @@ export async function openTerminal(element, keyBarElement) {
     cursorBlink: true,
   });
   terminal.open(element);
+  plainInput(element);
 
   // Without this the terminal keeps its default 80x24 and the rest of
   // the container is dead space beside it. The addon also watches the
